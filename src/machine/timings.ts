@@ -21,10 +21,29 @@ export const COUNTDOWN_TOTAL_MS = COUNTDOWN_TITLE_MS + COUNTDOWN_FROM * COUNTDOW
  */
 export const FILM_STALL_MS = 10_000;
 
-/** The interstitial's own watchdog, for a placeholder that never fires `ended`. */
+/**
+ * The campaign card's beats, from the comps that build it (Figma `Screen-Video_02` to
+ * `_05`): the field alone, then STAR IN / YOUR, then OWN FILM, then the Ford script, then
+ * everything clears and the card hands back to the loop.
+ *
+ * Cumulative from the card's first frame. The card owns these; the loop only hears `end`.
+ */
+export const INTERSTITIAL_BEATS = {
+  lead: 900,
+  headline: 2100,
+  ford: 3400,
+  clear: 6200,
+  end: 7400,
+} as const;
+
+/** The interstitial's own watchdog, in case its card never reports that it is done. */
 export const INTERSTITIAL_MAX_MS = 90_000;
-/** How long to hold on black when the interstitial will not play, before moving on. */
-export const INTERSTITIAL_ERROR_HOLD_MS = 4_000;
+
+/**
+ * What a film is assumed to run until the file reports its own duration. Only the Up Next
+ * panel's estimate reads it, and only for the few seconds before a film is loaded.
+ */
+export const ASSUMED_FILM_MS = 30_000;
 
 /** How often the wall asks the booth for new films and the hidden list. */
 export const POLL_MS = positiveNumber(process.env.NEXT_PUBLIC_WALL_POLL_MS, 15_000);

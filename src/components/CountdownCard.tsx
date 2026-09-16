@@ -1,42 +1,40 @@
-import { countdownTitle } from "@/content/copy";
 import type { WallFilm } from "@/lib/types";
-import { COUNTDOWN_FROM, COUNTDOWN_STEP_MS, COUNTDOWN_TITLE_MS } from "@/machine/timings";
-import { REGIONS } from "@/theme/regions";
-import { fitHeadline } from "@/theme/type";
-
-const TITLE_MAX_PX = 120;
-const TITLE_WIDTH = REGIONS.main.w - 120;
+import { COUNTDOWN_TITLE_MS } from "@/machine/timings";
+import { Backdrop, BackdropStill } from "./screen/Backdrop";
+import { CountdownDial } from "./screen/CountdownDial";
+import { RegistrationMarks } from "./screen/Marks";
+import { TitleCard } from "./screen/TitleCard";
 
 /**
- * "{NAME}'S ROAM", then 3, 2, 1, before each play of a guest's film.
+ * What runs before each play of a guest's film: the title card (Figma `Screen-Video_06`),
+ * then the leader counting down (`Screen-Video_07`).
  *
- * Pure CSS timing: every digit is mounted at once and waits out its own `animationDelay`
- * (the `count-in` fill keeps it invisible until then). The loop owns the one timer that
- * matters, the move to the film at COUNTDOWN_TOTAL_MS, so there is nothing here to drift
- * against it. Remounted per pass by the player's `key`, which restarts the animation.
+ * One backdrop, two layers over it. The dial's rings belong to both comps and are drawn
+ * once, so the only thing that changes at `COUNTDOWN_TITLE_MS` is the type: the name fades
+ * out and the count fades in over a field that never moves.
+ *
+ * Both layers are timed in CSS, from a single mount. The loop still owns the one timer that
+ * matters, the move to the film at `COUNTDOWN_TOTAL_MS`, and the player's `key` remounts
+ * this card per pass, which restarts every animation on it together.
  */
 export function CountdownCard({ film }: { film: WallFilm }) {
-  const title = countdownTitle(film.firstName);
-  const digits = Array.from({ length: COUNTDOWN_FROM }, (_, index) => COUNTDOWN_FROM - index);
-
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-ink">
-      <p
-        className="animate-fade-in whitespace-nowrap font-headline uppercase leading-[0.92] tracking-display text-white"
-        style={{ fontSize: fitHeadline(title, TITLE_WIDTH, TITLE_MAX_PX) }}
-      >
-        {title}
-      </p>
-      <div className="relative h-[230px] w-[230px]" aria-hidden>
-        {digits.map((digit, index) => (
-          <span
-            key={digit}
-            className="absolute inset-0 flex animate-count-in items-center justify-center font-headline text-[230px] leading-none text-ford-skyview"
-            style={{ animationDelay: `${COUNTDOWN_TITLE_MS + index * COUNTDOWN_STEP_MS}ms` }}
-          >
-            {digit}
-          </span>
-        ))}
+    <div className="absolute inset-0 overflow-hidden bg-ink">
+      {/* The rings belong to both comps. The still belongs only to the title card, so it
+          rides that layer and leaves with it. */}
+      <Backdrop glow="dial" />
+
+      {/* Drawn once, outside both layers: cross-fading two identical sets of marks would
+          dip them at the seam. */}
+      <RegistrationMarks />
+
+      <div className="absolute inset-0 animate-fade-out" style={{ animationDelay: `${COUNTDOWN_TITLE_MS}ms` }}>
+        <BackdropStill opacity={0.2} />
+        <TitleCard firstName={film.firstName} />
+      </div>
+
+      <div className="absolute inset-0 animate-fade-in" style={{ animationDelay: `${COUNTDOWN_TITLE_MS}ms` }}>
+        <CountdownDial firstName={film.firstName} />
       </div>
     </div>
   );

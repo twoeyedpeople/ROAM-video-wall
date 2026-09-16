@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What this is
 
-The ROAM video wall: a Next.js 15 + React 19 + Tailwind 3 + TypeScript app that loops guests' finished films on a 1920x1080 screen at the booth, with an Up Next panel and a B-roll panel. The brief is `reference.png`. Read `README.md` first for commands, env and the venue setup; this file covers what is not obvious from the code.
+The ROAM video wall: a Next.js 15 + React 19 + Tailwind 3 + TypeScript app that loops guests' finished films on a 1920x1080 screen at the booth, with an Up Next panel and a B-roll panel. `reference.png` is the original brief and still describes the three regions; what they look like comes from the client's Figma, which `README.md` maps node by node. Read `README.md` first for commands, env and the venue setup; this file covers what is not obvious from the code.
 
 It is the third app for the activation. The booth API (`../ROAM`, `twoeyedpeople/ROAM`) owns the films; the tablet (`../roam-tablet`) makes them. This app writes nothing anywhere. **Read `../ROAM/CLAUDE.md` ("The video wall") before changing anything on the wire.**
 
@@ -27,16 +27,33 @@ It is the third app for the activation. The booth API (`../ROAM`, `twoeyedpeople
 
 Up Next and the loop read the same function (`playOrder` / `upNextAfter`), so the panel can never promise a guest the loop will not play.
 
+## How the main region is drawn
+
+Everything the main region shows is comped on a **1920x1080 frame**, while `REGIONS.main` is 1024x640. `components/screen/ScreenFrame.tsx` puts a 16:9 box in the middle of the region and scales that frame into it once, so **a number off a comp is typed in as it is written** and nothing inside has to know the region's size. The bands above and below it are black design space.
+
+Four things live in that frame, and `MainPlayer` picks between them by step:
+
+- `screen/InterstitialCard.tsx` builds STAR IN YOUR OWN FILM over the resting field and reports its own end. It replaced `interstitial.mp4`, which is gone.
+- `CountdownCard.tsx` draws one dial and cross-fades `screen/TitleCard.tsx` into `screen/CountdownDial.tsx` over it at `COUNTDOWN_TITLE_MS`.
+- `screen/FilmChrome.tsx` frames the film with the marks in `screen/Marks.tsx`.
+
+`screen/Backdrop.tsx` is the field they share: black, a Skyview glow (or the leader's rings and cross hairs), the backdrop still, and a soft black weight bottom-left. Figma's blurred circles and gradient-stroked lines are CSS gradients here rather than exported SVG, because that is what they are.
+
 ## Things that bite
 
 - **Films are fetched by script and played from object URLs, never from a `src` pointing at the proxy.** The booth's blobs are private and a `<video>` cannot send a token. The chunking keeps every response through both serverless hops (here, then the booth) well inside Vercel's function response limit. Do not "simplify" this into `<video src="/api/booth/wall-film?...">`: it loses the token, loses the offline copy, and pays for the film again on every one of hundreds of replays.
 - **The cache keys on id AND version.** A re-render lands under the same id with a new output file, and must replace the old copy rather than be mistaken for it.
 - **The cache worker is one long-lived loop, not an effect per change.** It reads the wanted list from a ref and is woken early when that list changes. Restarting it on each change would abort a half-downloaded film every time a poll brought news.
 - **Nothing evicts until the feed has answered once** (`canEvict`). Before that, the wanted list is only what `localStorage` remembered, and evicting against it could delete films the first poll is about to ask for.
-- **The screen must never go black, and every step has an exit.** A film that stalls for `FILM_STALL_MS`, fails to decode, or is missing from the cache is skipped. It is marked played (sent to the back, so it cannot hold the wall) and its copy discarded (so its next turn is a fresh download). An interstitial that errors holds briefly then moves on, and one that never ends is timed out.
-- **Hiding cuts mid-film.** When the hidden list names the film on screen, the loop goes straight to the interstitial without marking it played. Taking it off the screen is the point.
-- **Both main-region videos stay mounted and are toggled with `visibility`**, as on the tablet. Remounting would throw away the film decoded during the countdown, which is the film's load window.
-- **The countdown's digits are pure CSS** (`count-in` with staggered `animationDelay`). The loop owns the one timer that matters, the move to the film at `COUNTDOWN_TOTAL_MS`. `COUNTDOWN_STEP_MS` and the keyframe's duration in `tailwind.config.ts` must agree.
+- **The screen must never go black, and every step has an exit.** A film that stalls for `FILM_STALL_MS`, fails to decode, or is missing from the cache is skipped. It is marked played (sent to the back, so it cannot hold the wall) and its copy discarded (so its next turn is a fresh download). The campaign card reports its own end and has no file to lose, but `INTERSTITIAL_MAX_MS` still covers a card that somehow never does.
+- **Hiding cuts mid-film.** When the hidden list names the film on screen, the loop goes straight to the campaign card without marking it played. Taking it off the screen is the point.
+- **The film element stays mounted and is toggled with `visibility`**, as on the tablet. Remounting would throw away the film decoded during the countdown, which is the film's load window. It is now the region's only video: the countdown and the campaign card are drawn.
+- **The countdown's digits are pure CSS** (`count-in` with staggered `animationDelay`), and so is the title-to-count cross-fade. The loop owns the one timer that matters, the move to the film at `COUNTDOWN_TOTAL_MS`. `COUNTDOWN_STEP_MS` and both the `count-in` and `sweep` durations in `tailwind.config.ts` must agree: the leader's sweep is one turn per digit.
+- **Type is placed by its capitals.** The comps measure every line as a cap height, so `.cap-trim` (`globals.css`, CSS `text-box`) makes the element box the cap box and `capSize()` turns a comp's cap height into a font size. `CAP_RATIO` in `theme/type.ts` is measured from the licensed woff2 as the browser draws it, not from Figma's text nodes, which report a taller cap for Franklin. **A wrong ratio there moves every line on the wall at once**; re-measure by reading a `.cap-trim` element's height back off the page.
+- **The face sets a few per cent wider than the comps' outlines.** Where a line is pinned to both margins, as OWN FILM is, fit it to the comp's box and let the cap give, or the two words meet in the middle.
+- **A mark component must not put `relative` on the box its caller positions.** Tailwind emits `relative` after `absolute`, so it wins, and the marks stack down the frame in normal flow instead of sitting in their corners. That is why `RegistrationMark`, `MacheWordmark` and `Turned` all keep the positioned box inside.
+- **The backdrop still and the leader's sweep never share a frame.** The comps keep them apart, and hard-light over the sweep's bright wedge lifts the still from grain into a photograph. That is why the countdown's still rides the title layer (`BackdropStill`) and leaves with it, rather than sitting in the shared `Backdrop`.
+- **The Up Next panel's "MINS AWAY" is arithmetic, not data.** Nothing on the feed carries a length. `machine/eta.ts` builds the figure from the loop's own beats and the film's duration once the file reports it, and `useWallLoop` only stores a new one when it moves by half a minute, so a panel that shows whole minutes cannot re-render the wall every second.
 - **The window is the later of `NEXT_PUBLIC_WALL_SINCE` and local midnight.** Films before it are pruned from state, the cache and the rotation. The display PC's clock and time zone therefore matter; set them.
 - **`localStorage` is keyed separately in a dry run**, so reviewing on the event machine cannot leave sample guests in the real rotation.
 - **Muted, always.** Autoplay without a gesture is only guaranteed muted. Sound is a kiosk flag plus a code change; see the README.
@@ -56,5 +73,5 @@ The booth's `/download` page has a designed "PLAYING SOON ON THE BIG SCREEN, N P
 - Strict TypeScript. `npm run typecheck`, `npm run build` and `npm test` before calling anything done.
 - Tailwind for styling. Colours are literal values, not `var()`, for the tablet's reason.
 - Components name a type role (`font-headline`, `font-ui`, `font-body`), never a typeface.
-- All copy is in `src/content/copy.ts`, and all layout geometry in `src/theme/regions.ts`.
+- All copy is in `src/content/copy.ts`, all layout geometry in `src/theme/regions.ts`, and every brand asset path and its proportions in `src/theme/brand.ts`. The comps' own numbers live as named constants at the top of the card that uses them.
 - Log lines are `[ROAM][wall]`- or `[ROAM][wall-proxy]`-prefixed.

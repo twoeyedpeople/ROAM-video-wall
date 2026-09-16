@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readFilm } from "@/lib/film-cache";
 import type { WallFilm } from "@/lib/types";
+import { upNextEtaMs } from "./eta";
 import { playOrder, upNextAfter, type PlayOrderOptions } from "./playlist";
 import {
+  ASSUMED_FILM_MS,
   COUNTDOWN_TOTAL_MS,
   FILM_STALL_MS,
-  INTERSTITIAL_ERROR_HOLD_MS,
+  INTERSTITIAL_BEATS,
   INTERSTITIAL_MAX_MS,
   PLAYS_PER_GUEST,
   RELOAD_AFTER_MS,
@@ -68,6 +70,8 @@ export function useWallLoop(input: WallLoopInput) {
   const tokenRef = useRef(0);
   const urlRef = useRef<string | null>(null);
   const progressRef = useRef(0);
+  /** What the film on screen has reported about itself, for the Up Next panel's estimate. */
+  const filmClockRef = useRef({ playedMs: 0, filmMs: ASSUMED_FILM_MS });
 
   const go = useCallback((next: NextStep) => {
     tokenRef.current += 1;
@@ -140,6 +144,7 @@ export function useWallLoop(input: WallLoopInput) {
   useEffect(() => {
     if (step.kind !== "film") return;
     progressRef.current = Date.now();
+    filmClockRef.current = { playedMs: 0, filmMs: ASSUMED_FILM_MS };
     const interval = setInterval(() => {
       if (Date.now() - progressRef.current > FILM_STALL_MS) failFilm("stalled");
     }, 1000);
@@ -164,13 +169,6 @@ export function useWallLoop(input: WallLoopInput) {
     return () => clearTimeout(timer);
   }, [step, releaseFilm, onInterstitialEnded]);
 
-  const onInterstitialFailed = useCallback(() => {
-    const token = stepRef.current.token;
-    window.setTimeout(() => {
-      if (stepRef.current.token === token) onInterstitialEnded();
-    }, INTERSTITIAL_ERROR_HOLD_MS);
-  }, [onInterstitialEnded]);
-
   const onFilmEnded = useCallback(() => {
     const current = stepRef.current;
     if (current.kind !== "film") return;
@@ -182,8 +180,12 @@ export function useWallLoop(input: WallLoopInput) {
     go({ kind: "interstitial" });
   }, [go]);
 
-  const onFilmProgress = useCallback(() => {
+  const onFilmProgress = useCallback((currentTime: number, duration: number) => {
     progressRef.current = Date.now();
+    filmClockRef.current = {
+      playedMs: currentTime * 1000,
+      filmMs: Number.isFinite(duration) && duration > 0 ? duration * 1000 : ASSUMED_FILM_MS,
+    };
   }, []);
 
   // An operator hid the film on screen (or it aged out of the window). Cut to the
@@ -207,16 +209,47 @@ export function useWallLoop(input: WallLoopInput) {
     return upNextAfter(input.films, input.order, currentId, Date.now());
   }, [currentId, queue, input.films, input.order]);
 
+  /**
+   * How long until the guest the panel names is on screen, for the panel's "MINS AWAY".
+   *
+   * Re-read on a slow tick and only stored when it moves by more than half a minute, so a
+   * figure the panel rounds to whole minutes cannot re-render the wall every second.
+   */
+  const [upNextEta, setUpNextEta] = useState(0);
+  useEffect(() => {
+    const startedAt = Date.now();
+    const read = () => {
+      const clock = filmClockRef.current;
+      const next = upNextEtaMs({
+        step: step.kind,
+        pass: step.kind === "interstitial" ? 0 : step.pass,
+        elapsedMs: Date.now() - startedAt,
+        filmMs: clock.filmMs,
+        playedMs: clock.playedMs,
+        playsPerGuest: PLAYS_PER_GUEST,
+        countdownMs: COUNTDOWN_TOTAL_MS,
+        interstitialMs: INTERSTITIAL_BEATS.end,
+      });
+      setUpNextEta((prev) => (Math.abs(prev - next) < ETA_STEP_MS ? prev : next));
+    };
+    read();
+    const interval = setInterval(read, 5_000);
+    return () => clearInterval(interval);
+  }, [step]);
+
   return {
     step,
     filmUrl,
     currentFilm: currentId ? input.filmsById[currentId] ?? null : null,
     upNext,
+    upNextEta,
     queue,
     onFilmEnded,
     onFilmFailed: failFilm,
     onFilmProgress,
     onInterstitialEnded,
-    onInterstitialFailed,
   };
 }
+
+/** How far the estimate has to move before the panel is worth re-rendering. */
+const ETA_STEP_MS = 30_000;

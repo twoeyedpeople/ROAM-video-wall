@@ -63,9 +63,8 @@ export function VideoWall() {
         onFilmFailed={loop.onFilmFailed}
         onFilmProgress={loop.onFilmProgress}
         onInterstitialEnded={loop.onInterstitialEnded}
-        onInterstitialFailed={loop.onInterstitialFailed}
       />
-      <UpNextPanel film={loop.upNext} />
+      <UpNextPanel film={loop.upNext} etaMs={loop.upNextEta} />
       <BRollPanel />
       {DRY_RUN && (
         // Deliberately off-brand, as on the tablet: a wall left in a dry run looks like a

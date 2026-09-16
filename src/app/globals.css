@@ -27,3 +27,18 @@
     -webkit-user-select: none;
   }
 }
+
+@layer utilities {
+  /**
+   * Makes an element's box its capitals, which is how every comp for the main region is
+   * measured: a line is placed and sized by its cap height, never by a line box. With this
+   * on, a `top` off the comp is the cap top and `capSize()` gives the font size.
+   *
+   * Chrome 133+, which the venue's display PC is well past. Where it is missing the line
+   * simply sits a few pixels low, which is a review machine's problem and not the wall's.
+   */
+  .cap-trim {
+    line-height: 1;
+    text-box: trim-both cap alphabetic;
+  }
+}

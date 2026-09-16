@@ -4,17 +4,30 @@ The big screen at the ROAM / Ford Mach-E booth. It loops the films guests make a
 
 It is the third app for the activation, next to the booth API (`twoeyedpeople/ROAM`, in `../ROAM`) and the tablet (`twoeyedpeople/ROAM-tablet`, in `../roam-tablet`). It holds no state of its own and adds no database: the films are the ones already in the booth's Vercel Blob store, reached through two read-only booth endpoints.
 
-The brief is `reference.png` in this folder.
+`reference.png` in this folder is the original brief, and still describes the three regions. What each region **looks like** comes from the client's Figma, `Ford - Mach-E Activation Tour (INT)`, file `GJizdiZe2kPeh7BDsMX51u`:
+
+| Node | Comp | Where it is built |
+| --- | --- | --- |
+| `33361:26291` | Screen layout: the 1920x1080 raster and its three regions | `src/theme/regions.ts` |
+| `33361:21245`, `33361:21217`, `33361:21189`, `33361:21161`, `33361:21132` | The campaign card building STAR IN YOUR OWN FILM | `src/components/screen/InterstitialCard.tsx` |
+| `33361:21100` | The title card, UP NEXT / {NAME}'S / ROAM | `src/components/screen/TitleCard.tsx` |
+| `33361:21066` | The leader counting down | `src/components/screen/CountdownDial.tsx` |
+| `33361:21050` | The guest's film, framed | `src/components/screen/FilmChrome.tsx` |
+| `33375:26579` | The Up Next panel | `src/components/UpNextPanel.tsx` |
+| `33375:30280` | The B-roll panel: the clip, no overlay | `src/components/BRollPanel.tsx` |
+
+Everything in the main region is comped on a 1920x1080 frame. The region itself is 1024x640, so the frame is a 16:9 box centred in it and scaled once (`ScreenFrame`); measurements off the comps are typed in as they are written.
 
 ## What it plays
 
 For each guest, in the main region:
 
-**countdown → film → countdown → film → interstitial → next guest**
+**countdown → film → countdown → film → campaign card → next guest**
 
-- The countdown is a title card, **"{NAME}'S ROAM"**, then 3, 2, 1. A guest who left the name blank gets "FREEDOM TO ROAM".
-- The film plays twice (the brief's "x2"), then the interstitial plays once.
-- Up Next names the guest who follows. With nothing queued it reads "YOUR JOURNEY".
+- The countdown is a title card, **"UP NEXT / {NAME}'S"** over the ROAM logo, then the leader counts 3, 2, 1 with the sweep going round. A guest who left the name blank gets "FREEDOM TO" over the same logo.
+- The film plays twice (the brief's "x2"), framed with the mach-e lockup, the ROAM logo and the guest's name down its edges.
+- The campaign card then builds **STAR IN YOUR OWN FILM** and clears, which takes 7.4 s. It is also the resting state when there is nothing to play.
+- Up Next names the guest who follows and says roughly how long they have. With nothing queued it reads "YOURS".
 - The B-roll panel loops on its own.
 
 **Rotation:**
@@ -64,24 +77,31 @@ chrome.exe --kiosk --noerrdialogs --disable-session-crashed-bubble ^
 - The token is kept in that browser and stripped from the address bar, so later reloads need no token.
 - The page scales the 1920x1080 layout to the actual output and letterboxes on black, so a 4K output is fine.
 - Films are muted. Autoplay without a tap is only guaranteed muted, and nobody taps the wall. For sound, add `--autoplay-policy=no-user-gesture-required` and remove `muted` from `MainPlayer`.
-- The page hides the cursor, holds a screen wake lock, and reloads itself at the first interstitial after six hours. What it holds survives the reload.
+- The page hides the cursor, holds a screen wake lock, and reloads itself at the first campaign card after six hours. What it holds survives the reload.
+- The type is placed by its capitals, using CSS `text-box` trimming (Chrome 133+). An older browser sets every line a few pixels low; it does not affect the venue's machine.
 - It must be served over HTTPS (or localhost). On plain http the Cache API is unavailable and films are held in memory only, so they are re-downloaded after every reload.
 
 `?debug=1` outlines the three regions and shows the loop's state, the queue, what is held locally and how the feed is doing. It is for setup and review.
 
 ## Taking a film off the wall
 
-On the booth's `/operations`, each result card has a **Hide from video wall** link (and **show it** to undo). The wall drops the film on its next poll, cutting to the interstitial if that film is on screen, and deletes its local copy. The booth refuses the film's bytes from then on.
+On the booth's `/operations`, each result card has a **Hide from video wall** link (and **show it** to undo). The wall drops the film on its next poll, cutting to the campaign card if that film is on screen, and deletes its local copy. The booth refuses the film's bytes from then on.
 
-## Placeholders
+## Art
 
-These are generated stand-ins in `public/assets/wall/`. Replace the files and keep the paths:
+In `public/assets/wall/brand/`, exported from the Figma above:
 
-- `interstitial.mp4`: plays between guests, and on its own when nothing is queued.
-- `b-roll.mp4`: the B-roll panel's loop.
+- `mache-wordmark.png`, `roam-logo.svg`, `ford-script.svg`: the marks. Their proportions are in `src/theme/brand.ts`, beside each path.
+- `backdrop.png`: the film still every card is built over, tinted Skyview and held at a few per cent. It is texture, not a picture; the comps use one frame throughout.
+
+Still to be supplied, in `public/assets/wall/`. Replace the file and keep the path:
+
+- `b-roll.mp4`: the B-roll panel's loop, currently a generated stand-in.
 - `dry-run/sample-*.mp4`: dry-run films only.
 
-The black space outside the three regions is design space, and is empty because the brief leaves it empty. Region positions live in `src/theme/regions.ts`.
+There is **no `interstitial.mp4` any more**. The card between guests is drawn from the comps in `src/components/screen/InterstitialCard.tsx` and reports its own end. If a produced interstitial film ever arrives, give `MainPlayer` a second `<video>` on the interstitial step in its place; nothing else assumes either.
+
+The black space outside the three regions, and the bands above and below the 16:9 screen inside the main region, are design space, and are empty because the brief leaves them empty. Region positions live in `src/theme/regions.ts`.
 
 ## Deploying
 
