@@ -35,7 +35,7 @@ Four things live in that frame, and `MainPlayer` picks between them by step:
 
 - `screen/InterstitialFilm.tsx` plays the delivered campaign spot (`public/assets/wall/interstitial.mp4`), full-frame and silent, and reports its own end. `screen/InterstitialCard.tsx`, which builds STAR IN YOUR OWN FILM over the resting field out of type and CSS, is what the step falls back to for the life of the page if that file will not play, will not decode or stops making progress.
 - `CountdownCard.tsx` draws one dial and cross-fades `screen/TitleCard.tsx` into `screen/CountdownDial.tsx` over it at `COUNTDOWN_TITLE_MS`.
-- `screen/FilmChrome.tsx` frames the film with the marks in `screen/Marks.tsx`.
+- The guest's film plays bare. The render bakes in the lockups, the ROAM logo and the guest's name, so the wall draws nothing over it; `screen/FilmChrome.tsx` did, doubled every mark, and was deleted.
 
 `screen/Backdrop.tsx` is the field they share: black, a Skyview glow (or the leader's rings and cross hairs), the backdrop still, and a soft black weight bottom-left. Figma's blurred circles and gradient-stroked lines are CSS gradients here rather than exported SVG, because that is what they are.
 

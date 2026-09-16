@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CountdownCard } from "./CountdownCard";
-import { FilmChrome } from "./screen/FilmChrome";
 import { InterstitialCard } from "./screen/InterstitialCard";
 import { InterstitialFilm } from "./screen/InterstitialFilm";
 import { ScreenFrame } from "./screen/ScreenFrame";
@@ -30,6 +29,10 @@ interface MainPlayerProps {
  * never unmounted or set to `display: none`: a hidden element is not guaranteed to keep its
  * decoded frames, and remounting would throw away the film loaded during the countdown. The
  * tablet learned the same lesson with its camera.
+ *
+ * Nothing is drawn over the guest's film. The render bakes the mach-e lockups, the ROAM logo
+ * and the guest's name into the output itself, so a mark here would land twice; the wall's
+ * own `FilmChrome` was deleted for that reason. Check the render before adding one back.
  *
  * The countdown is drawn. The campaign spot is the delivered film, and `InterstitialCard`,
  * which is drawn from the same comps, is what takes the step back if that file ever fails:
@@ -106,7 +109,6 @@ export function MainPlayer({
           onFailed={failSpot}
         />
 
-        {step.kind === "film" && film && <FilmChrome firstName={film.firstName} />}
         {step.kind === "countdown" && film && <CountdownCard key={step.token} film={film} />}
         {step.kind === "interstitial" && spotFailed && (
           <InterstitialCard key={step.token} onEnded={onInterstitialEnded} />

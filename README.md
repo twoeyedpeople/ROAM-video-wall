@@ -12,7 +12,7 @@ It is the third app for the activation, next to the booth API (`twoeyedpeople/RO
 | `33361:21245`, `33361:21217`, `33361:21189`, `33361:21161`, `33361:21132` | The campaign card building STAR IN YOUR OWN FILM | `src/components/screen/InterstitialCard.tsx` |
 | `33361:21100` | The title card, UP NEXT / {NAME}'S / ROAM | `src/components/screen/TitleCard.tsx` |
 | `33361:21066` | The leader counting down | `src/components/screen/CountdownDial.tsx` |
-| `33361:21050` | The guest's film, framed | `src/components/screen/FilmChrome.tsx` |
+| `33361:21050` | The guest's film. Its marks are baked into the render, so the wall draws nothing over it | `src/components/MainPlayer.tsx` |
 | `33375:26579` | The Up Next panel | `src/components/UpNextPanel.tsx` |
 | `33375:30280` | The B-roll panel: the clip, no overlay | `src/components/BRollPanel.tsx` |
 
