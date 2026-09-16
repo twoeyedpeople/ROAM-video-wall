@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Only what a utility cannot express. Palette, type roles and keyframes are in
+ * `tailwind.config.ts`; the faces are in `src/theme/fonts.ts`.
+ */
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  /* A screen, not a page: nothing scrolls, nothing is selectable, and there is no pointer to
+     show, since nobody at the venue has a mouse on it. */
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: theme("colors.ink");
+    color: #ffffff;
+    font-family: theme("fontFamily.body");
+    cursor: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
