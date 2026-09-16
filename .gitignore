@@ -9,6 +9,10 @@ next-env.d.ts
 .env*.local
 .vercel/
 
+# Delivered masters, kept beside the project to re-encode from. What ships is the
+# web-optimised copy under public/assets/wall/.
+assets-master/
+
 *.log
 npm-debug.log*
 .DS_Store

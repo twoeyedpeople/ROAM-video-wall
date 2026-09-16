@@ -1,14 +1,14 @@
 import { BoothError, boothFetch } from "./booth";
 import { DRY_RUN, dryRunFilmUrl } from "./dry-run";
 import type { WallFilm } from "./types";
-import { CHUNK_BYTES } from "@/machine/timings";
+import { CHUNK_BYTES, CHUNK_CONCURRENCY } from "@/machine/timings";
 
 /**
  * The wall's local copy of every film it plays.
  *
- * Each film is downloaded once, in ranges of at most `CHUNK_BYTES`, into the Cache API, and
- * played from an object URL. Three reasons, all of which are about the wall never going
- * black:
+ * Each film is downloaded once, in `CHUNK_CONCURRENCY` ranges of at most `CHUNK_BYTES` at a
+ * time, into the Cache API, and played from an object URL. Three reasons, all of which are
+ * about the wall never going black:
  *
  *   - The booth's blobs are private and a `<video>` cannot send a token, so the film has to
  *     be fetched by script anyway.
@@ -59,34 +59,60 @@ export async function readFilm(film: WallFilm): Promise<Blob | null> {
 }
 
 export async function downloadFilm(film: WallFilm, signal?: AbortSignal): Promise<void> {
-  const chunks: Blob[] = [];
-  let contentType = "video/mp4";
-  let start = 0;
-  let total = Number.POSITIVE_INFINITY;
+  // The first range doubles as the question "how big is this film", which is the only part
+  // that has to happen before the rest can be asked for.
+  const first = await fetchRange(film, 0, CHUNK_BYTES - 1, signal);
+  const contentType = first.headers.get("content-type") || "video/mp4";
 
-  while (start < total) {
-    const response = await fetchRange(film, start, start + CHUNK_BYTES - 1, signal);
-    contentType = response.headers.get("content-type") || contentType;
+  if (first.status === 200) {
+    // A source that ignores Range (the dry run's static files may) sends the whole thing.
+    const whole = await first.blob();
+    if (!whole.size) throw new BoothError("Film download was empty", 502);
+    await storeFilm(film, new Blob([whole], { type: contentType }));
+    return;
+  }
+  if (first.status !== 206) {
+    throw new BoothError(`Film download failed: ${first.status}`, first.status);
+  }
+  const head = parseContentRange(first.headers.get("content-range"));
+  if (!head || head.start !== 0) {
+    throw new BoothError("Film download returned the wrong range", 502);
+  }
 
-    if (response.status === 200) {
-      // A source that ignores Range (the dry run's static files may) sends the whole thing.
-      const whole = await response.blob();
-      chunks.length = 0;
-      chunks.push(whole);
-      total = whole.size;
-      break;
-    }
-    if (response.status !== 206) {
-      throw new BoothError(`Film download failed: ${response.status}`, response.status);
-    }
+  const total = head.total;
+  const starts: number[] = [];
+  for (let start = head.end + 1; start < total; start += CHUNK_BYTES) starts.push(start);
 
-    const range = parseContentRange(response.headers.get("content-range"));
-    if (!range || range.start !== start) {
-      throw new BoothError("Film download returned the wrong range", 502);
+  // Index 0 is the range already in hand; the rest land in place, so the order the answers
+  // come back in does not matter.
+  const chunks: Blob[] = new Array(starts.length + 1);
+  chunks[0] = await first.blob();
+
+  let next = 0;
+  let stopped = false;
+  const worker = async () => {
+    while (!stopped) {
+      const index = next++;
+      if (index >= starts.length) return;
+      const start = starts[index];
+      const response = await fetchRange(film, start, Math.min(start + CHUNK_BYTES, total) - 1, signal);
+      if (response.status !== 206) {
+        throw new BoothError(`Film download failed: ${response.status}`, response.status);
+      }
+      const range = parseContentRange(response.headers.get("content-range"));
+      if (!range || range.start !== start || range.total !== total) {
+        throw new BoothError("Film download returned the wrong range", 502);
+      }
+      chunks[index + 1] = await response.blob();
     }
-    chunks.push(await response.blob());
-    total = range.total;
-    start = range.end + 1;
+  };
+
+  try {
+    await Promise.all(Array.from({ length: Math.min(CHUNK_CONCURRENCY, starts.length) }, worker));
+  } finally {
+    // One bad range fails the film. Whatever is already in flight finishes and is dropped;
+    // no further range is asked for.
+    stopped = true;
   }
 
   const blob = new Blob(chunks, { type: contentType });

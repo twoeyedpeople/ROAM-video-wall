@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CountdownCard } from "./CountdownCard";
 import { FilmChrome } from "./screen/FilmChrome";
 import { InterstitialCard } from "./screen/InterstitialCard";
+import { InterstitialFilm } from "./screen/InterstitialFilm";
 import { ScreenFrame } from "./screen/ScreenFrame";
 import type { WallFilm } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -21,18 +22,23 @@ interface MainPlayerProps {
 }
 
 /**
- * The main region: the guest's film, the countdown over it, and the campaign card between
+ * The main region: the guest's film, the countdown over it, and the campaign spot between
  * guests. All three are comped on a 1920x1080 frame, which `ScreenFrame` scales into the
  * region, so everything inside is placed in the comps' own pixels.
  *
- * The film element stays mounted whatever the step is, and is toggled with `visibility`,
+ * Both video elements stay mounted whatever the step is, and are toggled with `visibility`,
  * never unmounted or set to `display: none`: a hidden element is not guaranteed to keep its
  * decoded frames, and remounting would throw away the film loaded during the countdown. The
  * tablet learned the same lesson with its camera.
  *
- * The countdown and the campaign card are drawn rather than played, so there is no second
- * video to keep alive and no file to go missing. The campaign card reports its own end; the
- * loop's `INTERSTITIAL_MAX_MS` still covers a card that somehow never does.
+ * The countdown is drawn. The campaign spot is the delivered film, and `InterstitialCard`,
+ * which is drawn from the same comps, is what takes the step back if that file ever fails:
+ * it needs nothing off disk, so it cannot fail the same way. Whichever plays reports its own
+ * end, and the loop's `INTERSTITIAL_MAX_MS` still covers one that somehow never does.
+ *
+ * The fall back to the card is permanent for the life of the page. A missing or broken local
+ * file is missing or broken on its next turn too, and a card every time beats a frozen frame
+ * every time.
  *
  * Muted, always. Autoplay without a user gesture is only guaranteed muted, and the wall has
  * no one to tap it. See the README for running with sound.
@@ -47,6 +53,15 @@ export function MainPlayer({
   onInterstitialEnded,
 }: MainPlayerProps) {
   const filmRef = useRef<HTMLVideoElement>(null);
+  const [spotFailed, setSpotFailed] = useState(false);
+  const spotFailedRef = useRef(false);
+
+  const failSpot = useCallback((reason: string) => {
+    if (spotFailedRef.current) return;
+    spotFailedRef.current = true;
+    console.warn("[ROAM][wall] interstitial-film-failed", { reason });
+    setSpotFailed(true);
+  }, []);
 
   useEffect(() => {
     const video = filmRef.current;
@@ -84,9 +99,18 @@ export function MainPlayer({
           }}
         />
 
+        <InterstitialFilm
+          active={step.kind === "interstitial" && !spotFailed}
+          token={step.token}
+          onEnded={onInterstitialEnded}
+          onFailed={failSpot}
+        />
+
         {step.kind === "film" && film && <FilmChrome firstName={film.firstName} />}
         {step.kind === "countdown" && film && <CountdownCard key={step.token} film={film} />}
-        {step.kind === "interstitial" && <InterstitialCard key={step.token} onEnded={onInterstitialEnded} />}
+        {step.kind === "interstitial" && spotFailed && (
+          <InterstitialCard key={step.token} onEnded={onInterstitialEnded} />
+        )}
       </ScreenFrame>
     </div>
   );

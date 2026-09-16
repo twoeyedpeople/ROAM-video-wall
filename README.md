@@ -22,11 +22,11 @@ Everything in the main region is comped on a 1920x1080 frame. The region itself 
 
 For each guest, in the main region:
 
-**countdown → film → countdown → film → campaign card → next guest**
+**countdown → film → countdown → film → campaign spot → next guest**
 
 - The countdown is a title card, **"UP NEXT / {NAME}'S"** over the ROAM logo, then the leader counts 3, 2, 1 with the sweep going round. A guest who left the name blank gets "FREEDOM TO" over the same logo.
 - The film plays twice (the brief's "x2"), framed with the mach-e lockup, the ROAM logo and the guest's name down its edges.
-- The campaign card then builds **STAR IN YOUR OWN FILM** and clears, which takes 7.4 s. It is also the resting state when there is nothing to play.
+- The delivered campaign spot then plays, which takes 15 s. It is also the resting state when there is nothing to play. If that file ever fails, the drawn card that preceded it builds **STAR IN YOUR OWN FILM** and clears in 7.4 s instead.
 - Up Next names the guest who follows and says roughly how long they have. With nothing queued it reads "YOURS".
 - The B-roll panel loops on its own.
 
@@ -76,8 +76,8 @@ chrome.exe --kiosk --noerrdialogs --disable-session-crashed-bubble ^
 
 - The token is kept in that browser and stripped from the address bar, so later reloads need no token.
 - The page scales the 1920x1080 layout to the actual output and letterboxes on black, so a 4K output is fine.
-- Films are muted. Autoplay without a tap is only guaranteed muted, and nobody taps the wall. For sound, add `--autoplay-policy=no-user-gesture-required` and remove `muted` from `MainPlayer`.
-- The page hides the cursor, holds a screen wake lock, and reloads itself at the first campaign card after six hours. What it holds survives the reload.
+- Films are muted. Autoplay without a tap is only guaranteed muted, and nobody taps the wall. For sound, add `--autoplay-policy=no-user-gesture-required` and remove `muted` from `MainPlayer`. The campaign spot carries no audio track at all, so it stays silent either way.
+- The page hides the cursor, holds a screen wake lock, and reloads itself at the first campaign spot after six hours. What it holds survives the reload.
 - The type is placed by its capitals, using CSS `text-box` trimming (Chrome 133+). An older browser sets every line a few pixels low; it does not affect the venue's machine.
 - It must be served over HTTPS (or localhost). On plain http the Cache API is unavailable and films are held in memory only, so they are re-downloaded after every reload.
 
@@ -85,7 +85,7 @@ chrome.exe --kiosk --noerrdialogs --disable-session-crashed-bubble ^
 
 ## Taking a film off the wall
 
-On the booth's `/operations`, each result card has a **Hide from video wall** link (and **show it** to undo). The wall drops the film on its next poll, cutting to the campaign card if that film is on screen, and deletes its local copy. The booth refuses the film's bytes from then on.
+On the booth's `/operations`, each result card has a **Hide from video wall** link (and **show it** to undo). The wall drops the film on its next poll, cutting to the campaign spot if that film is on screen, and deletes its local copy. The booth refuses the film's bytes from then on.
 
 ## Art
 
@@ -94,12 +94,31 @@ In `public/assets/wall/brand/`, exported from the Figma above:
 - `mache-wordmark.png`, `roam-logo.svg`, `ford-script.svg`: the marks. Their proportions are in `src/theme/brand.ts`, beside each path.
 - `backdrop.png`: the film still every card is built over, tinted Skyview and held at a few per cent. It is texture, not a picture; the comps use one frame throughout.
 
-Still to be supplied, in `public/assets/wall/`. Replace the file and keep the path:
+Also in `public/assets/wall/`. Replace the file and keep the path. Both delivered films are kept out of git as they arrived, in `assets-master/`, and what ships is the web-optimised copy re-encoded from them:
 
-- `b-roll.mp4`: the B-roll panel's loop, currently a generated stand-in.
+- `interstitial.mp4`: the delivered campaign spot, played between guests. 1920x1080, 23.976 fps, 15.015 s, H.264 High, 6.1 MB, faststart, **no audio track** (the master's was digital silence and the wall is muted anyway). Re-encoded from the master with:
+
+  ```sh
+  ffmpeg -i master.mp4 -c:v libx264 -profile:v high -level 4.0 -preset slow -crf 21 \
+    -pix_fmt yuv420p -g 48 -keyint_min 24 \
+    -color_primaries bt709 -color_trc bt709 -colorspace bt709 \
+    -an -movflags +faststart public/assets/wall/interstitial.mp4
+  ```
+
+  If the length changes, update `INTERSTITIAL_FILM_MS` in `src/machine/timings.ts`, which is what the Up Next panel's estimate counts the step as.
+- `b-roll.mp4`: the delivered user-shots reel, looping in the bottom-left panel. 512x512, 24 fps, 3 m 35 s, 9.9 MB, faststart, no audio track (silent master again). The panel is a 256x256 square and `object-cover` would centre-crop a 16:9 file to exactly this, so the crop is baked in and the file is a quarter of the pixels; 512 rather than 256 is for a 4K output:
+
+  ```sh
+  ffmpeg -i master.mp4 -vf "crop=ih:ih,scale=512:512:flags=lanczos" \
+    -c:v libx264 -profile:v high -level 4.0 -preset slow -crf 25 \
+    -pix_fmt yuv420p -g 48 -keyint_min 24 \
+    -color_primaries bt709 -color_trc bt709 -colorspace bt709 \
+    -an -movflags +faststart public/assets/wall/b-roll.mp4
+  ```
+
 - `dry-run/sample-*.mp4`: dry-run films only.
 
-There is **no `interstitial.mp4` any more**. The card between guests is drawn from the comps in `src/components/screen/InterstitialCard.tsx` and reports its own end. If a produced interstitial film ever arrives, give `MainPlayer` a second `<video>` on the interstitial step in its place; nothing else assumes either.
+`src/components/screen/InterstitialCard.tsx`, the same card drawn from the comps, is the fall back if that spot will not play, and is all the interstitial step was before the spot was delivered.
 
 The black space outside the three regions, and the bands above and below the 16:9 screen inside the main region, are design space, and are empty because the brief leaves them empty. Region positions live in `src/theme/regions.ts`.
 

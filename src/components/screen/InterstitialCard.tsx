@@ -9,15 +9,15 @@ import { Backdrop } from "./Backdrop";
 import { FordScript, MacheWordmark, RegistrationMarks } from "./Marks";
 
 /**
- * The campaign card, between guests and whenever there is nothing to play (Figma
- * `Screen-Video_02` to `_05`).
+ * The campaign card, drawn from the comps (Figma `Screen-Video_02` to `_05`).
  *
  * It builds: the field alone, then STAR IN / YOUR, then OWN FILM under them, then the Ford
  * script lands between the first two, then it all clears. `INTERSTITIAL_BEATS` holds the
  * timing and this card holds the drawing.
  *
- * It replaces the placeholder `interstitial.mp4`. A produced film can take the region back
- * by giving the loop a `<video>` again in `MainPlayer`; nothing else assumes either.
+ * The delivered spot (`screen/InterstitialFilm.tsx`) has the interstitial step now, and this
+ * is what `MainPlayer` falls back to if that file will not play. It draws itself out of type
+ * and CSS, so there is nothing left for it to be missing.
  *
  * The bottom-right crosshair is missing on purpose: the mach-e lockup has that corner, and
  * the comp drops the mark rather than stack them.

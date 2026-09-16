@@ -22,11 +22,23 @@ export const COUNTDOWN_TOTAL_MS = COUNTDOWN_TITLE_MS + COUNTDOWN_FROM * COUNTDOW
 export const FILM_STALL_MS = 10_000;
 
 /**
+ * The delivered campaign spot's own length (`public/assets/wall/interstitial.mp4`), which is
+ * what the interstitial step runs for. Only the Up Next panel's estimate reads it: the spot
+ * itself reports its end.
+ *
+ * Re-measure it when the file is replaced. An estimate a few seconds out only ever shows in a
+ * figure the panel rounds to whole minutes, so this is worth keeping honest but not exact.
+ */
+export const INTERSTITIAL_FILM_MS = 15_015;
+
+/**
  * The campaign card's beats, from the comps that build it (Figma `Screen-Video_02` to
  * `_05`): the field alone, then STAR IN / YOUR, then OWN FILM, then the Ford script, then
  * everything clears and the card hands back to the loop.
  *
- * Cumulative from the card's first frame. The card owns these; the loop only hears `end`.
+ * The card is the fall back for a spot that will not play, so these only run when that
+ * happens. Cumulative from the card's first frame; the card owns them, and the loop only
+ * hears `end`.
  */
 export const INTERSTITIAL_BEATS = {
   lead: 900,
@@ -36,7 +48,7 @@ export const INTERSTITIAL_BEATS = {
   end: 7400,
 } as const;
 
-/** The interstitial's own watchdog, in case its card never reports that it is done. */
+/** The interstitial's own watchdog, in case neither the spot nor the card reports its end. */
 export const INTERSTITIAL_MAX_MS = 90_000;
 
 /**
@@ -59,6 +71,17 @@ export const CACHE_IDLE_MS = 5_000;
  * limit, whatever the film's size.
  */
 export const CHUNK_BYTES = 4 * 1024 * 1024;
+
+/**
+ * How many of those ranges are in flight at once.
+ *
+ * Each range costs about the same wall time whatever its size, because almost all of it is
+ * the two serverless hops and the booth's read from blob storage rather than the bytes. A
+ * 43 MB film fetched one range at a time took 43 s on the venue link and fewer than 10 s at
+ * six, and until the first film has landed the wall has nothing to play but the campaign
+ * card. The ranges are still small; only the waiting is shared.
+ */
+export const CHUNK_CONCURRENCY = 6;
 
 /** How many already-played films stay in the replay rotation, newest kept. */
 export const REPLAY_LIMIT = 150;

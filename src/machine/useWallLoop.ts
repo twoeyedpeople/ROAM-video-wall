@@ -9,7 +9,7 @@ import {
   ASSUMED_FILM_MS,
   COUNTDOWN_TOTAL_MS,
   FILM_STALL_MS,
-  INTERSTITIAL_BEATS,
+  INTERSTITIAL_FILM_MS,
   INTERSTITIAL_MAX_MS,
   PLAYS_PER_GUEST,
   RELOAD_AFTER_MS,
@@ -70,6 +70,13 @@ export function useWallLoop(input: WallLoopInput) {
   const tokenRef = useRef(0);
   const urlRef = useRef<string | null>(null);
   const progressRef = useRef(0);
+  /**
+   * Whether the card on screen is up because there was nothing to play, rather than because
+   * a guest's run just ended. A resting card is filler and gives way to the first film that
+   * is ready; a card between two guests always plays in full. The wall starts resting, which
+   * is what stops a cold start sitting through a whole card before its first film.
+   */
+  const restingRef = useRef(true);
   /** What the film on screen has reported about itself, for the Up Next panel's estimate. */
   const filmClockRef = useRef({ playedMs: 0, filmMs: ASSUMED_FILM_MS });
 
@@ -90,6 +97,7 @@ export function useWallLoop(input: WallLoopInput) {
   const startNext = useCallback(() => {
     const { films, order } = inputRef.current;
     const next = playOrder(films, order)[0];
+    restingRef.current = !next;
     go(next ? { kind: "countdown", filmId: next.id, pass: 1 } : { kind: "interstitial" });
   }, [go]);
 
@@ -106,6 +114,7 @@ export function useWallLoop(input: WallLoopInput) {
       console.warn("[ROAM][wall] film-skipped", { id: current.filmId, reason });
       inputRef.current.markPlayed(current.filmId);
       if (film) void inputRef.current.discard(film);
+      restingRef.current = false;
       go({ kind: "interstitial" });
     },
     [go]
@@ -177,6 +186,7 @@ export function useWallLoop(input: WallLoopInput) {
       return;
     }
     inputRef.current.markPlayed(current.filmId);
+    restingRef.current = false;
     go({ kind: "interstitial" });
   }, [go]);
 
@@ -194,10 +204,23 @@ export function useWallLoop(input: WallLoopInput) {
   const currentGone =
     currentId !== null && (input.order.hidden.has(currentId) || !input.filmsById[currentId]);
   useEffect(() => {
-    if (currentGone) go({ kind: "interstitial" });
+    if (!currentGone) return;
+    restingRef.current = false;
+    go({ kind: "interstitial" });
   }, [currentGone, go]);
 
   const queue = useMemo(() => playOrder(input.films, input.order), [input.films, input.order]);
+
+  /**
+   * A resting card gives way as soon as the wall holds a film, rather than running to its
+   * end first. It is what the wall shows when it has nothing, so the moment it has something
+   * there is nothing to wait for: a cold start plays its first guest as the download lands.
+   */
+  const restingHead = step.kind === "interstitial" ? queue[0]?.id ?? null : null;
+  useEffect(() => {
+    if (!restingHead || !restingRef.current) return;
+    startNext();
+  }, [restingHead, startNext]);
 
   /**
    * During a guest's run, what follows it; during an interstitial, what is about to start.
@@ -228,7 +251,7 @@ export function useWallLoop(input: WallLoopInput) {
         playedMs: clock.playedMs,
         playsPerGuest: PLAYS_PER_GUEST,
         countdownMs: COUNTDOWN_TOTAL_MS,
-        interstitialMs: INTERSTITIAL_BEATS.end,
+        interstitialMs: INTERSTITIAL_FILM_MS,
       });
       setUpNextEta((prev) => (Math.abs(prev - next) < ETA_STEP_MS ? prev : next));
     };

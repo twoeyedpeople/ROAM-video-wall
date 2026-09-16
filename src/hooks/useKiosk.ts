@@ -36,7 +36,11 @@ export function useWakeLock() {
 export function useDebugFlag(): boolean {
   const [debug, setDebug] = useState(false);
   useEffect(() => {
-    setDebug(new URLSearchParams(window.location.search).get("debug") === "1");
+    const on = new URLSearchParams(window.location.search).get("debug") === "1";
+    setDebug(on);
+    // The venue's screen has no mouse, so `globals.css` hides the pointer. A debug session is
+    // someone at a keyboard, and losing the cursor over the page is its own small madness.
+    document.documentElement.toggleAttribute("data-debug", on);
   }, []);
   return debug;
 }

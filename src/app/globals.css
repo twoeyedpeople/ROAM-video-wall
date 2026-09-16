@@ -26,6 +26,13 @@
     user-select: none;
     -webkit-user-select: none;
   }
+
+  /* Except under `?debug=1`, which means someone is at a keyboard and needs to see where
+     they are pointing. `useDebugFlag` sets the attribute. */
+  html[data-debug],
+  html[data-debug] body {
+    cursor: auto;
+  }
 }
 
 @layer utilities {
