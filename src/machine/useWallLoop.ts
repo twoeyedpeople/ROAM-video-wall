@@ -103,17 +103,22 @@ export function useWallLoop(input: WallLoopInput) {
 
   /**
    * A film that will not play is skipped rather than retried in place. Marking it played
-   * sends it to the back of the rotation, and discarding the local copy means its next turn
-   * plays a fresh download rather than the same broken bytes.
+   * sends it to the back of the rotation.
+   *
+   * Only a failure that points at the bytes (a decode error, a copy missing from the cache)
+   * discards the local copy so its next turn plays a fresh download. A stall does not: it is
+   * almost always the browser (a hidden or locked screen, a busy decoder), not the file, and
+   * discarding on it re-downloaded a whole film every ~30 s for as long as the stall lasted,
+   * which was 40+ GB overnight on 2026-09-16.
    */
   const failFilm = useCallback(
-    (reason: string) => {
+    (reason: string, discardCopy = true) => {
       const current = stepRef.current;
       if (current.kind === "interstitial") return;
       const film = inputRef.current.filmsById[current.filmId];
       console.warn("[ROAM][wall] film-skipped", { id: current.filmId, reason });
       inputRef.current.markPlayed(current.filmId);
-      if (film) void inputRef.current.discard(film);
+      if (film && discardCopy) void inputRef.current.discard(film);
       restingRef.current = false;
       go({ kind: "interstitial" });
     },
@@ -155,7 +160,13 @@ export function useWallLoop(input: WallLoopInput) {
     progressRef.current = Date.now();
     filmClockRef.current = { playedMs: 0, filmMs: ASSUMED_FILM_MS };
     const interval = setInterval(() => {
-      if (Date.now() - progressRef.current > FILM_STALL_MS) failFilm("stalled");
+      // A hidden page's video is paused by the browser, not stalled. Count from when it is
+      // visible again.
+      if (document.hidden) {
+        progressRef.current = Date.now();
+        return;
+      }
+      if (Date.now() - progressRef.current > FILM_STALL_MS) failFilm("stalled", false);
     }, 1000);
     return () => clearInterval(interval);
   }, [step, failFilm]);

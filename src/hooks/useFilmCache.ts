@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { discardFilm, downloadFilm, evictFilmsExcept, filmKey, hasFilm } from "@/lib/film-cache";
 import type { WallFilm } from "@/lib/types";
-import { CACHE_IDLE_MS, DOWNLOAD_RETRY_MS } from "@/machine/timings";
+import { CACHE_IDLE_MS, DOWNLOAD_RETRY_MAX_MS, DOWNLOAD_RETRY_MS } from "@/machine/timings";
 
 /**
  * Keeps the local film cache in step with what the rotation wants.
@@ -25,6 +25,7 @@ export function useFilmCache(wanted: readonly WallFilm[], canEvict: boolean) {
   canEvictRef.current = canEvict;
   const heldRef = useRef(new Set<string>());
   const wakeRef = useRef<(() => void) | null>(null);
+  const discardedRef = useRef(new Set<string>());
 
   const [heldKeys, setHeldKeys] = useState<ReadonlySet<string>>(() => new Set());
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -35,7 +36,7 @@ export function useFilmCache(wanted: readonly WallFilm[], canEvict: boolean) {
   useEffect(() => {
     let stopped = false;
     const controller = new AbortController();
-    const failedAt = new Map<string, number>();
+    const failures = new Map<string, { at: number; count: number }>();
     const looked = new Set<string>();
 
     const rest = (ms: number) =>
@@ -62,8 +63,14 @@ export function useFilmCache(wanted: readonly WallFilm[], canEvict: boolean) {
             continue;
           }
         }
-        const lastFailure = failedAt.get(key);
-        if (lastFailure && Date.now() - lastFailure < DOWNLOAD_RETRY_MS) continue;
+        // Backs off per film. A failure after the last range has landed (the cache refusing
+        // the put, say) costs the whole film each time, so a fixed interval would re-download
+        // it every half minute for as long as the fault lasts.
+        const failure = failures.get(key);
+        if (failure) {
+          const wait = Math.min(DOWNLOAD_RETRY_MS * 2 ** (failure.count - 1), DOWNLOAD_RETRY_MAX_MS);
+          if (Date.now() - failure.at < wait) continue;
+        }
         return film;
       }
       return null;
@@ -80,13 +87,13 @@ export function useFilmCache(wanted: readonly WallFilm[], canEvict: boolean) {
           try {
             await downloadFilm(film, controller.signal);
             heldRef.current.add(key);
-            failedAt.delete(key);
+            failures.delete(key);
             setFailed((prev) => withoutKey(prev, key));
             publish();
           } catch (err) {
             if (stopped) return;
             const message = err instanceof Error ? err.message : "Download failed";
-            failedAt.set(key, Date.now());
+            failures.set(key, { at: Date.now(), count: (failures.get(key)?.count ?? 0) + 1 });
             setFailed((prev) => new Map(prev).set(key, message));
             console.warn("[ROAM][wall] film-download-failed", { id: film.id, version: film.version, message });
           } finally {
@@ -124,10 +131,17 @@ export function useFilmCache(wanted: readonly WallFilm[], canEvict: boolean) {
     wakeRef.current?.();
   }, [signature]);
 
-  /** Forgets a film that would not play, so the next rotation fetches a fresh copy. */
+  /**
+   * Forgets a film that would not play, so the next rotation fetches a fresh copy. Once per
+   * film version per page load: a file that fails again after a fresh download is broken at
+   * the source, and fetching it again every turn only pays for the same bad bytes.
+   */
   const discard = useCallback(
     async (film: WallFilm) => {
-      heldRef.current.delete(filmKey(film));
+      const key = filmKey(film);
+      if (discardedRef.current.has(key)) return;
+      discardedRef.current.add(key);
+      heldRef.current.delete(key);
       publish();
       await discardFilm(film).catch(() => {});
       wakeRef.current?.();

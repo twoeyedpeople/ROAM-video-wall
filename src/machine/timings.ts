@@ -60,8 +60,12 @@ export const ASSUMED_FILM_MS = 30_000;
 /** How often the wall asks the booth for new films and the hidden list. */
 export const POLL_MS = positiveNumber(process.env.NEXT_PUBLIC_WALL_POLL_MS, 15_000);
 
-/** How long a film that failed to download waits before it is tried again. */
+/**
+ * How long a film that failed to download waits before it is tried again. Doubles with each
+ * consecutive failure of the same film, up to DOWNLOAD_RETRY_MAX_MS.
+ */
 export const DOWNLOAD_RETRY_MS = 30_000;
+export const DOWNLOAD_RETRY_MAX_MS = 30 * 60_000;
 /** How long the cache worker rests once it holds everything wanted. */
 export const CACHE_IDLE_MS = 5_000;
 
