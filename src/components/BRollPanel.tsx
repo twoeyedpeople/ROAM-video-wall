@@ -4,11 +4,11 @@ import { useEffect, useRef } from "react";
 import { REGIONS, rectStyle } from "@/theme/regions";
 
 /**
- * The delivered user-shots reel. Swap the file, keep the path.
+ * The delivered 20 s loop. Swap the file, keep the path.
  *
- * It is encoded square, because this panel is square and `object-cover` would centre-crop a
- * 16:9 file to the same thing at eight times the pixels. The crop is baked in; re-cut it from
- * the master in `assets-master/` if the framing ever needs to change.
+ * It is encoded square at 512, because this panel is square; a 16:9 master would have its
+ * crop baked in rather than left to `object-cover`. Re-encode from the master in
+ * `assets-master/` (the README has the command).
  */
 export const B_ROLL_SRC = "/assets/wall/b-roll.mp4";
 

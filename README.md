@@ -106,11 +106,11 @@ Also in `public/assets/wall/`. Replace the file and keep the path. Both delivere
   ```
 
   If the length changes, update `INTERSTITIAL_FILM_MS` in `src/machine/timings.ts`, which is what the Up Next panel's estimate counts the step as.
-- `b-roll.mp4`: the delivered user-shots reel, looping in the bottom-left panel. 512x512, 24 fps, 3 m 35 s, 9.9 MB, faststart, no audio track (silent master again). The panel is a 256x256 square and `object-cover` would centre-crop a 16:9 file to exactly this, so the crop is baked in and the file is a quarter of the pixels; 512 rather than 256 is for a 4K output:
+- `b-roll.mp4`: the delivered 20 s loop ("Sounds Fun", v5), looping in the bottom-left panel. 512x512, 23.976 fps, 20.06 s, H.264 High, 1.9 MB, faststart, no audio track (the panel is muted, so the master's stereo track is dropped). The panel is a 256x256 square; the master arrives square at 1080x1080, so it is only scaled, and 512 rather than 256 is for a 4K output. The earlier user-shots reel, which was 16:9 and needed `crop=ih:ih` ahead of the scale, is kept as `assets-master/b-roll-master-v1-user-shots.mp4`:
 
   ```sh
-  ffmpeg -i master.mp4 -vf "crop=ih:ih,scale=512:512:flags=lanczos" \
-    -c:v libx264 -profile:v high -level 4.0 -preset slow -crf 25 \
+  ffmpeg -i master.mp4 -vf "scale=512:512:flags=lanczos" \
+    -c:v libx264 -profile:v high -level 4.0 -preset slow -crf 23 \
     -pix_fmt yuv420p -g 48 -keyint_min 24 \
     -color_primaries bt709 -color_trc bt709 -colorspace bt709 \
     -an -movflags +faststart public/assets/wall/b-roll.mp4
