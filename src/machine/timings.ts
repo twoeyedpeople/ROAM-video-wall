@@ -32,7 +32,7 @@ export const FILM_STALL_MS = 10_000;
  * Re-measure it when the file is replaced. An estimate a few seconds out only ever shows in a
  * figure the panel rounds to whole minutes, so this is worth keeping honest but not exact.
  */
-export const INTERSTITIAL_FILM_MS = 15_015;
+export const INTERSTITIAL_FILM_MS = 20_020;
 
 /**
  * The campaign card's beats, from the comps that build it (Figma `Screen-Video_02` to

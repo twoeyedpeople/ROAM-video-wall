@@ -26,7 +26,7 @@ Two guests at a time, in the main region:
 
 - The countdown is a title card, **"UP NEXT / {NAME}'S"** over the ROAM logo, then the leader counts 3, 2, 1 with the sweep going round. A guest who left the name blank gets "FREEDOM TO" over the same logo.
 - Each film plays once per turn (the brief's "x2" is two guests between spots, not one guest twice), framed with the mach-e lockup, the ROAM logo and the guest's name down its edges. With only one film on the wall, it plays alone between spots.
-- The delivered campaign spot then plays, which takes 15 s. It is also the resting state when there is nothing to play. If that file ever fails, the drawn card that preceded it builds **STAR IN YOUR OWN FILM** and clears in 7.4 s instead.
+- The delivered campaign spot then plays, which takes 20 s. It is also the resting state when there is nothing to play. If that file ever fails, the drawn card that preceded it builds **STAR IN YOUR OWN FILM** and clears in 7.4 s instead.
 - Up Next names the guest who follows and says roughly how long they have. With nothing queued it reads "YOURS".
 - The B-roll panel loops on its own.
 
@@ -96,7 +96,7 @@ In `public/assets/wall/brand/`, exported from the Figma above:
 
 Also in `public/assets/wall/`. Replace the file and keep the path. Both delivered films are kept out of git as they arrived, in `assets-master/`, and what ships is the web-optimised copy re-encoded from them:
 
-- `interstitial.mp4`: the delivered campaign spot, played between guests. 1920x1080, 23.976 fps, 15.015 s, H.264 High, 6.1 MB, faststart, **no audio track** (the master's was digital silence and the wall is muted anyway). Re-encoded from the master with:
+- `interstitial.mp4`: the delivered campaign spot ("Sounds Fun", Ohana Fest film experience, v5), played between guests. 1920x1080, 23.976 fps, 20.02 s, H.264 High, 5.3 MB, faststart, **no audio track** (the wall is muted, so the master's stereo track is dropped). The master is `assets-master/Sounds Fun - Ford Mach-E Roam x Ohana Fest_FILM EXPERIENCE_v5.mp4`, kept under its delivered name; the earlier 15 s spot's master is `assets-master/interstitial-master.mp4`. Re-encoded with:
 
   ```sh
   ffmpeg -i master.mp4 -c:v libx264 -profile:v high -level 4.0 -preset slow -crf 21 \
