@@ -10,15 +10,19 @@ import {
   COUNTDOWN_TOTAL_MS,
   FILM_STALL_MS,
   INTERSTITIAL_FILM_MS,
+  FILMS_PER_BREAK,
   INTERSTITIAL_MAX_MS,
-  PLAYS_PER_GUEST,
   RELOAD_AFTER_MS,
 } from "./timings";
 
 /**
  * The sequence in the main region, from the brief:
  *
- *   countdown (pass 1) -> film -> countdown (pass 2) -> film -> interstitial -> next guest
+ *   countdown -> guest A's film (slot 1) -> countdown -> guest B's film (slot 2) -> interstitial
+ *
+ * Each film plays once per turn. The second slot is whoever the rotation names after the
+ * first, which is the same answer the Up Next panel gives during it. With only one film on
+ * the wall there is no second guest, and the run goes straight to the interstitial.
  *
  * The interstitial is also the resting state: with nothing to play it loops, and every time
  * it ends the next guest is picked afresh, so a film that lands mid-interstitial starts as
@@ -33,13 +37,13 @@ import {
  */
 export type Step =
   | { kind: "interstitial"; token: number }
-  | { kind: "countdown"; token: number; filmId: string; pass: number }
-  | { kind: "film"; token: number; filmId: string; pass: number };
+  | { kind: "countdown"; token: number; filmId: string; slot: number }
+  | { kind: "film"; token: number; filmId: string; slot: number };
 
 type NextStep =
   | { kind: "interstitial" }
-  | { kind: "countdown"; filmId: string; pass: number }
-  | { kind: "film"; filmId: string; pass: number };
+  | { kind: "countdown"; filmId: string; slot: number }
+  | { kind: "film"; filmId: string; slot: number };
 
 export interface WallLoopInput {
   films: readonly WallFilm[];
@@ -54,9 +58,9 @@ function makeStep(next: NextStep, token: number): Step {
     case "interstitial":
       return { kind: "interstitial", token };
     case "countdown":
-      return { kind: "countdown", token, filmId: next.filmId, pass: next.pass };
+      return { kind: "countdown", token, filmId: next.filmId, slot: next.slot };
     case "film":
-      return { kind: "film", token, filmId: next.filmId, pass: next.pass };
+      return { kind: "film", token, filmId: next.filmId, slot: next.slot };
   }
 }
 
@@ -98,7 +102,7 @@ export function useWallLoop(input: WallLoopInput) {
     const { films, order } = inputRef.current;
     const next = playOrder(films, order)[0];
     restingRef.current = !next;
-    go(next ? { kind: "countdown", filmId: next.id, pass: 1 } : { kind: "interstitial" });
+    go(next ? { kind: "countdown", filmId: next.id, slot: 1 } : { kind: "interstitial" });
   }, [go]);
 
   /**
@@ -125,10 +129,10 @@ export function useWallLoop(input: WallLoopInput) {
     [go]
   );
 
-  // Pass 1's countdown is the film's load window: read it out of the cache while the title
-  // and the digits run, so it is decoded and waiting when the countdown ends.
+  // Every countdown is its film's load window: read it out of the cache while the title and
+  // the digits run, so it is decoded and waiting when the countdown ends.
   useEffect(() => {
-    if (step.kind !== "countdown" || step.pass !== 1) return;
+    if (step.kind !== "countdown") return;
     const film = inputRef.current.filmsById[step.filmId];
     const token = step.token;
     let cancelled = false;
@@ -151,7 +155,7 @@ export function useWallLoop(input: WallLoopInput) {
 
   useEffect(() => {
     if (step.kind !== "countdown") return;
-    const timer = setTimeout(() => go({ kind: "film", filmId: step.filmId, pass: step.pass }), COUNTDOWN_TOTAL_MS);
+    const timer = setTimeout(() => go({ kind: "film", filmId: step.filmId, slot: step.slot }), COUNTDOWN_TOTAL_MS);
     return () => clearTimeout(timer);
   }, [step, go]);
 
@@ -192,13 +196,18 @@ export function useWallLoop(input: WallLoopInput) {
   const onFilmEnded = useCallback(() => {
     const current = stepRef.current;
     if (current.kind !== "film") return;
-    if (current.pass < PLAYS_PER_GUEST) {
-      go({ kind: "countdown", filmId: current.filmId, pass: current.pass + 1 });
-      return;
-    }
-    inputRef.current.markPlayed(current.filmId);
+    const { films, order, markPlayed } = inputRef.current;
+    markPlayed(current.filmId);
     restingRef.current = false;
-    go({ kind: "interstitial" });
+    // Asked as if this film had already been recorded, because `markPlayed` lands on the next
+    // render. When this is the only film, the answer is itself, and it waits for its next turn.
+    const next =
+      current.slot < FILMS_PER_BREAK ? upNextAfter(films, order, current.filmId, Date.now()) : null;
+    go(
+      next && next.id !== current.filmId
+        ? { kind: "countdown", filmId: next.id, slot: current.slot + 1 }
+        : { kind: "interstitial" }
+    );
   }, [go]);
 
   const onFilmProgress = useCallback((currentTime: number, duration: number) => {
@@ -250,17 +259,20 @@ export function useWallLoop(input: WallLoopInput) {
    * figure the panel rounds to whole minutes cannot re-render the wall every second.
    */
   const [upNextEta, setUpNextEta] = useState(0);
+  // Read through a ref so a poll that changes who is up next does not restart the step's clock.
+  const cardBetweenRef = useRef(false);
+  cardBetweenRef.current =
+    step.kind !== "interstitial" && (step.slot >= FILMS_PER_BREAK || !upNext || upNext.id === step.filmId);
   useEffect(() => {
     const startedAt = Date.now();
     const read = () => {
       const clock = filmClockRef.current;
       const next = upNextEtaMs({
         step: step.kind,
-        pass: step.kind === "interstitial" ? 0 : step.pass,
+        cardBetween: cardBetweenRef.current,
         elapsedMs: Date.now() - startedAt,
         filmMs: clock.filmMs,
         playedMs: clock.playedMs,
-        playsPerGuest: PLAYS_PER_GUEST,
         countdownMs: COUNTDOWN_TOTAL_MS,
         interstitialMs: INTERSTITIAL_FILM_MS,
       });

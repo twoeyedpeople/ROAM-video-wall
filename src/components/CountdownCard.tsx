@@ -15,7 +15,7 @@ import { TitleCard } from "./screen/TitleCard";
  *
  * Both layers are timed in CSS, from a single mount. The loop still owns the one timer that
  * matters, the move to the film at `COUNTDOWN_TOTAL_MS`, and the player's `key` remounts
- * this card per pass, which restarts every animation on it together.
+ * this card per countdown, which restarts every animation on it together.
  */
 export function CountdownCard({ film }: { film: WallFilm }) {
   return (

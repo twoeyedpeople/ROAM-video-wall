@@ -14,7 +14,7 @@ import { capSize } from "@/theme/type";
  * The digits are the pure-CSS timing this card has always used: all of them are mounted at
  * once and each waits out its own `animationDelay`, so the only timer that matters is still
  * the loop's move to the film at `COUNTDOWN_TOTAL_MS` and there is nothing here to drift
- * against it. Remounted per pass by the player's `key`, which restarts the animation.
+ * against it. Remounted per countdown by the player's `key`, which restarts the animation.
  */
 const LABEL = { top: 51.555, cap: 22.0 };
 const DIGIT = { top: 396.551, cap: 277.394 };

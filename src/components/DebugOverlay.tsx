@@ -30,7 +30,7 @@ const PANEL: Rect = { x: 1080, y: 290, w: 800, h: 520 };
 export function DebugOverlay(props: DebugOverlayProps) {
   const { step, current, upNext, queue, films, readyIds, hidden, downloading, failed, status, cursor, windowStart } = props;
   const name = (film: WallFilm | null) => (film ? `${displayName(film.firstName) || "(no name)"} ${film.id}` : "none");
-  const stepLabel = step.kind === "interstitial" ? "interstitial" : `${step.kind} pass ${step.pass}`;
+  const stepLabel = step.kind === "interstitial" ? "interstitial" : `${step.kind} slot ${step.slot}`;
 
   return (
     <>

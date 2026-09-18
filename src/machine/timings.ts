@@ -5,8 +5,11 @@
  * COUNTDOWN_STEP_MS. The two must agree, or a digit is still fading when the next lands.
  */
 
-/** The brief's "x2": each guest's countdown and film play twice before the interstitial. */
-export const PLAYS_PER_GUEST = 2;
+/**
+ * The brief's "x2": two guests' films, each once with its own countdown, between campaign
+ * spots. It is not each film twice; that was an early misreading.
+ */
+export const FILMS_PER_BREAK = 2;
 
 /** The title card alone, before the 3. */
 export const COUNTDOWN_TITLE_MS = 1600;

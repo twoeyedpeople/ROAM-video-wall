@@ -11,42 +11,39 @@
  *
  * It answers for the guest who follows the one on screen, which is exactly who the panel
  * names. During a campaign card that is the guest about to start, so the run is the card's
- * own remainder and one countdown.
+ * own remainder and one countdown. During a guest's film, it is the rest of that film, the
+ * campaign card if one falls between them, and one countdown.
  */
 export interface EtaInput {
   step: "interstitial" | "countdown" | "film";
-  /** Which of this guest's plays is on screen. Ignored on the campaign card. */
-  pass: number;
+  /**
+   * Whether a campaign card comes between the guest on screen and the one named: true after
+   * the last slot of a break, or when there is no other guest to fill the next slot. Ignored
+   * on the campaign card itself.
+   */
+  cardBetween: boolean;
   /** Milliseconds since this step began. Used on the campaign card and the countdown. */
   elapsedMs: number;
   /** The film's length. `ASSUMED_FILM_MS` until the file has reported its own. */
   filmMs: number;
   /** How far into the film on screen the player has reached. */
   playedMs: number;
-  playsPerGuest: number;
   countdownMs: number;
   interstitialMs: number;
 }
 
 export function upNextEtaMs(input: EtaInput): number {
-  const { playsPerGuest, countdownMs, interstitialMs, filmMs } = input;
-
-  // Whatever is on screen now, the next guest's film is still behind a campaign card and a
-  // countdown. Except during the card itself, which is already that card.
-  const tail = interstitialMs + countdownMs;
+  const { countdownMs, interstitialMs, filmMs } = input;
+  const tail = (input.cardBetween ? interstitialMs : 0) + countdownMs;
 
   switch (input.step) {
     case "interstitial":
       return Math.max(0, interstitialMs - input.elapsedMs) + countdownMs;
 
-    case "countdown": {
-      const passesLeft = Math.max(0, playsPerGuest - input.pass);
-      return Math.max(0, countdownMs - input.elapsedMs) + filmMs + passesLeft * (countdownMs + filmMs) + tail;
-    }
+    case "countdown":
+      return Math.max(0, countdownMs - input.elapsedMs) + filmMs + tail;
 
-    case "film": {
-      const passesLeft = Math.max(0, playsPerGuest - input.pass);
-      return Math.max(0, filmMs - input.playedMs) + passesLeft * (countdownMs + filmMs) + tail;
-    }
+    case "film":
+      return Math.max(0, filmMs - input.playedMs) + tail;
   }
 }

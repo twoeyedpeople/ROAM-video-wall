@@ -20,12 +20,12 @@ Everything in the main region is comped on a 1920x1080 frame. The region itself 
 
 ## What it plays
 
-For each guest, in the main region:
+Two guests at a time, in the main region:
 
-**countdown → film → countdown → film → campaign spot → next guest**
+**countdown → guest A's film → countdown → guest B's film → campaign spot → the next two**
 
 - The countdown is a title card, **"UP NEXT / {NAME}'S"** over the ROAM logo, then the leader counts 3, 2, 1 with the sweep going round. A guest who left the name blank gets "FREEDOM TO" over the same logo.
-- The film plays twice (the brief's "x2"), framed with the mach-e lockup, the ROAM logo and the guest's name down its edges.
+- Each film plays once per turn (the brief's "x2" is two guests between spots, not one guest twice), framed with the mach-e lockup, the ROAM logo and the guest's name down its edges. With only one film on the wall, it plays alone between spots.
 - The delivered campaign spot then plays, which takes 15 s. It is also the resting state when there is nothing to play. If that file ever fails, the drawn card that preceded it builds **STAR IN YOUR OWN FILM** and clears in 7.4 s instead.
 - Up Next names the guest who follows and says roughly how long they have. With nothing queued it reads "YOURS".
 - The B-roll panel loops on its own.
