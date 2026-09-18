@@ -39,8 +39,6 @@ export const COPY = {
   panelEmptyNote: "STAR IN YOUR OWN FILM",
   panelEtaMinutes: "APPROX. {minutes} MIN AWAY",
   panelEtaMinutesPlural: "APPROX. {minutes} MINS AWAY",
-  /** Under a minute, where a rounded figure would read as wrong within seconds. */
-  panelEtaSoon: "UP AFTER THIS ONE",
 };
 
 export function displayName(firstName: string): string {
@@ -68,13 +66,12 @@ export function panelName(firstName: string | null): string {
 }
 
 /**
- * The panel's note. Under a minute it says so in words: a figure that rounds to "1 min"
- * and then to "0" while a guest watches reads as broken.
+ * The panel's note, always a figure as the comp has it. It holds at 1 rather than rounding
+ * down to "0 mins away", which reads as broken.
  */
 export function panelNote(etaMs: number | null): string {
   if (etaMs === null) return COPY.panelEmptyNote;
-  const minutes = etaMinutes(etaMs);
-  if (minutes < 1) return COPY.panelEtaSoon;
+  const minutes = Math.max(1, etaMinutes(etaMs));
   const template = minutes === 1 ? COPY.panelEtaMinutes : COPY.panelEtaMinutesPlural;
   return template.replace("{minutes}", String(minutes));
 }
