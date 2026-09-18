@@ -59,12 +59,14 @@ export default {
       },
       animation: {
         // Must match COUNTDOWN_STEP_MS in `src/machine/timings.ts`.
-        "count-in": "count-in 1000ms cubic-bezier(0.22, 0.61, 0.36, 1) both",
+        "count-in": "count-in 1200ms cubic-bezier(0.22, 0.61, 0.36, 1) both",
         "fade-in": "fade-in 400ms cubic-bezier(0.22, 0.61, 0.36, 1) both",
         "fade-out": "fade-out 400ms cubic-bezier(0.22, 0.61, 0.36, 1) both",
         // One turn per digit, which is COUNTDOWN_STEP_MS. Linear, because a sweep that eases
         // reads as a stutter rather than as a mechanism.
-        sweep: "sweep 1000ms linear infinite",
+        sweep: "sweep 1200ms linear infinite",
+        // The leader's cut to black: no fade, and it holds until the card goes.
+        cut: "fade-in 1ms linear both",
       },
     },
   },

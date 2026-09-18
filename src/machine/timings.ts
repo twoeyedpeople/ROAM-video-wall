@@ -11,10 +11,16 @@
  */
 export const FILMS_PER_BREAK = 2;
 
-/** The title card alone, before the 3. */
-export const COUNTDOWN_TITLE_MS = 1600;
-/** Each of 3, 2, 1. */
-export const COUNTDOWN_STEP_MS = 1000;
+/**
+ * The title card alone, before the 3. Long enough to read a long name from across the room;
+ * 1.6 s felt rushed on the floor (2026-09-18).
+ */
+export const COUNTDOWN_TITLE_MS = 2400;
+/**
+ * Each of 3, 2, 1. A real leader counts at 1 s, which read as a tad fast on the wall, so this
+ * is slowed a fifth. `count-in` and `sweep` in `tailwind.config.ts` must match it.
+ */
+export const COUNTDOWN_STEP_MS = 1200;
 export const COUNTDOWN_FROM = 3;
 export const COUNTDOWN_TOTAL_MS = COUNTDOWN_TITLE_MS + COUNTDOWN_FROM * COUNTDOWN_STEP_MS;
 
