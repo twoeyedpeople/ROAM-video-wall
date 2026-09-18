@@ -32,6 +32,14 @@ export interface EtaInput {
   interstitialMs: number;
 }
 
+/**
+ * The whole minutes the panel shows for an estimate. The loop redraws the panel only when this
+ * changes, and the copy words it, so the two cannot disagree about when the figure moved.
+ */
+export function etaMinutes(etaMs: number): number {
+  return Math.round(etaMs / 60_000);
+}
+
 export function upNextEtaMs(input: EtaInput): number {
   const { countdownMs, interstitialMs, filmMs } = input;
   const tail = (input.cardBetween ? interstitialMs : 0) + countdownMs;

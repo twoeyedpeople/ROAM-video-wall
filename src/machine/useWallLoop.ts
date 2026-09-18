@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readFilm } from "@/lib/film-cache";
 import type { WallFilm } from "@/lib/types";
-import { upNextEtaMs } from "./eta";
+import { etaMinutes, upNextEtaMs } from "./eta";
 import { playOrder, upNextAfter, type PlayOrderOptions } from "./playlist";
 import {
   ASSUMED_FILM_MS,
@@ -255,8 +255,11 @@ export function useWallLoop(input: WallLoopInput) {
   /**
    * How long until the guest the panel names is on screen, for the panel's "MINS AWAY".
    *
-   * Re-read on a slow tick and only stored when it moves by more than half a minute, so a
-   * figure the panel rounds to whole minutes cannot re-render the wall every second.
+   * Re-read every second and stored only when the whole minute the panel shows changes, so
+   * the figure steps down on the minute it crosses without re-rendering the wall every
+   * second. It used to be stored only when it moved by half a minute against the last value
+   * stored, read every 5 s, which could hold a figure up to 35 s past the minute and read as
+   * stuck.
    */
   const [upNextEta, setUpNextEta] = useState(0);
   // Read through a ref so a poll that changes who is up next does not restart the step's clock.
@@ -276,10 +279,10 @@ export function useWallLoop(input: WallLoopInput) {
         countdownMs: COUNTDOWN_TOTAL_MS,
         interstitialMs: INTERSTITIAL_FILM_MS,
       });
-      setUpNextEta((prev) => (Math.abs(prev - next) < ETA_STEP_MS ? prev : next));
+      setUpNextEta((prev) => (etaMinutes(prev) === etaMinutes(next) ? prev : next));
     };
     read();
-    const interval = setInterval(read, 5_000);
+    const interval = setInterval(read, 1_000);
     return () => clearInterval(interval);
   }, [step]);
 
@@ -296,6 +299,3 @@ export function useWallLoop(input: WallLoopInput) {
     onInterstitialEnded,
   };
 }
-
-/** How far the estimate has to move before the panel is worth re-rendering. */
-const ETA_STEP_MS = 30_000;

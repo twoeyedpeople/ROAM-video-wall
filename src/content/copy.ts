@@ -1,3 +1,5 @@
+import { etaMinutes } from "@/machine/eta";
+
 /**
  * Everything the wall says. A copy edit touches this file and nothing else.
  *
@@ -71,7 +73,7 @@ export function panelName(firstName: string | null): string {
  */
 export function panelNote(etaMs: number | null): string {
   if (etaMs === null) return COPY.panelEmptyNote;
-  const minutes = Math.round(etaMs / 60_000);
+  const minutes = etaMinutes(etaMs);
   if (minutes < 1) return COPY.panelEtaSoon;
   const template = minutes === 1 ? COPY.panelEtaMinutes : COPY.panelEtaMinutesPlural;
   return template.replace("{minutes}", String(minutes));
